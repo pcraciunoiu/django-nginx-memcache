@@ -31,7 +31,7 @@ Installation
 
 #. Setup Memcached appropriately as described in `Django's cache framework docs <http://docs.djangoproject.com/en/dev/topics/cache/#memcached>`_.
 
-#. Install Nginx with the `set_misc <https://github.com/agentzh/set-misc-nginx-module>`_ or `set_hash module <https://github.com/simpl/ngx_http_set_hash>`_. This is required to compute md5 cache keys from within Nginx.
+#. Install Nginx with the `set_misc <https://github.com/agentzh/set-misc-nginx-module>`_ or `set_hash module <https://github.com/simpl/ngx_http_set_hash>`_. This is required to compute md5 cache keys from within Nginx. (See installing nginx below).
 #. Configure Nginx for direct Memcached page retrieval, i.e::
 
     location / {
@@ -50,6 +50,53 @@ Installation
     location @cache_miss {
         # Your previous django config goes here...
     }
+
+Installing Nginx
+~~~~~~~~~~~~~~~~
+
+These instructions apply for Ubuntu 11.04 and above::
+
+    # install all dependencies
+    sudo aptitude install libc6 libpcre3 libpcre3-dev libpcrecpp0 libssl0.9.8 libssl-dev zlib1g zlib1g-dev lsb-base
+
+    # download nginx
+    wget http://nginx.org/download/nginx-1.0.11.tar.gz
+    tar -zxf nginx-1.0.11.tar.gz
+    rm nginx-1.0.11.tar.gz
+    cd nginx-1.0.11/
+
+    # download modules
+    wget https://github.com/simpl/ngx_devel_kit/zipball/v0.2.17 -O ngx_devel_kit.zip
+    unzip ngx_devel_kit.zip
+    wget https://github.com/agentzh/set-misc-nginx-module/zipball/v0.22rc4 -O set-misc-nginx-module.zip
+    unzip set-misc-nginx-module.zip
+    wget https://github.com/agentzh/echo-nginx-module/zipball/v0.37rc7 -O echo-nginx-module.zip
+    unzip echo-nginx-module.zip
+
+    # configure and install
+    ./configure \
+        --add-module=simpl-ngx_devel_kit-bc97eea \
+        --add-module=agentzh-set-misc-nginx-module-290d6cb \
+        --add-module=agentzh-echo-nginx-module-b7ea185 \
+        --prefix=/usr \
+        --pid-path=/var/run/nginx.pid \
+        --lock-path=/var/lock/nginx.lock \
+        --http-log-path=/var/log/nginx/access.log \
+        --error-log-path=/var/log/nginx/error.log \
+        --http-client-body-temp-path=/var/lib/nginx/body \
+        --conf-path=/etc/nginx/nginx.conf \
+        --with-http_flv_module \
+        --with-http_ssl_module \
+        --with-http_gzip_static_module \
+        --http-proxy-temp-path=/var/lib/nginx/proxy \
+        --with-http_stub_status_module \
+        --http-fastcgi-temp-path=/var/lib/nginx/fastcgi \
+        --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
+        --http-scgi-temp-path=/var/lib/nginx/scgi
+    make
+    sudo make install
+
+    # Done, now configure your nginx.
 
 
 Usage
@@ -89,6 +136,39 @@ Optional parameters
 
 ``anonymous_only``
   Don't cache the page unless the user is anonymous, i.e. not authenticated.
+
+Usage with forms and CSRF
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to embed forms on a cached page, you can leave out the context `{{ csrf() }}` or `{% csrf_token %}` and, instead, append it to all forms using JavaScript post page-load, or when a button is clicked.
+
+Here's example JS and Django code for it::
+
+    // JS code
+    $.ajax({
+        url: // your csrf url,
+        type: 'GET',
+        data: {type: 'login'},  // only if you need a session id for cookie login
+        dataType: 'json',
+        success: function(data) {
+            $('form').each(function() {
+                $(this).append(
+                    '<input type=hidden name=csrfmiddlewaretoken ' +
+                        ' value="' + data.token + '">');
+            });
+        }
+    });
+
+    // Django code
+    # views.py, don't forget to add to urls.py
+    def get_csrf(request):
+        if request.GET.get('type') == 'login':
+            request.session.set_test_cookie()
+        return JSONResponse({
+            'status': 1,
+            'token': getattr(request, 'csrf_token', 'NOTPROVIDED')
+        })
+
 
 Full List of Settings
 ~~~~~~~~~~~~~~~~~~~~~
