@@ -3,6 +3,9 @@ from django.conf import settings
 from .cache import cache_response
 
 
+is_enabled = getattr(settings, 'CACHE_NGINX', True)
+
+
 class UpdateCacheMiddleware(object):
     """Updates the cache cache with the response of the request.
 
@@ -29,7 +32,7 @@ class UpdateCacheMiddleware(object):
 
     def process_response(self, request, response):
         """Sets the cache, if needed."""
-        if not getattr(settings, 'CACHE_NGINX') or request.method != 'GET' or (
+        if not is_enabled or request.method != 'GET' or (
             response.status_code != 200):
             # HTTPMiddleware, throws the body of a HEAD-request away before
             # this middleware gets a chance to cache it.

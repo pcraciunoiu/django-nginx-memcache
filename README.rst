@@ -94,7 +94,7 @@ Full List of Settings
 ~~~~~~~~~~~~~~~~~~~~~
 
 ``CACHE_NGINX``
-  *Required.* Set this to True to enable the decorator.
+  Set this to False to disable any caching. E.g. for testing, staging...
 
 ``CACHE_NGINX_TIME``
   Default cache timeout.
